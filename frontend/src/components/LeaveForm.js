@@ -12,9 +12,9 @@ import {
   Grid,
   CircularProgress
 } from '@mui/material';
-import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { useAuth } from '../context/AuthContext';
 import { leaveAPI } from '../api';
 
@@ -67,9 +67,8 @@ export default function LeaveForm({ onSubmitSuccess }) {
       <Box component="form" onSubmit={formik.handleSubmit}>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6}>
-            <DesktopDatePicker
+            <DatePicker
               label="Start Date"
-              inputFormat="MM/dd/yyyy"
               value={formik.values.startDate}
               onChange={(date) => formik.setFieldValue('startDate', date)}
               renderInput={(params) => (
@@ -84,9 +83,8 @@ export default function LeaveForm({ onSubmitSuccess }) {
           </Grid>
           
           <Grid item xs={12} sm={6}>
-            <DesktopDatePicker
+            <DatePicker
               label="End Date"
-              inputFormat="MM/dd/yyyy"
               value={formik.values.endDate}
               onChange={(date) => formik.setFieldValue('endDate', date)}
               minDate={formik.values.startDate}

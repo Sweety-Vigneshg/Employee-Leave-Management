@@ -17,6 +17,8 @@ import {
   Chip
 } from '@mui/material';
 import { leaveAPI } from '../api';
+// Add this import at the top
+import CircularProgress from '@mui/material/CircularProgress';
 
 const statusColors = {
   Pending: 'default',

@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const bcrypt = require('bcryptjs');
 
 class Employee {
   static async findByEmail(email) {
@@ -7,9 +8,11 @@ class Employee {
   }
 
   static async create({ name, email, password }) {
+    // Add password hashing
+    const hashedPassword = await bcrypt.hash(password, 10);
     const [result] = await db.execute(
       'INSERT INTO employees (name, email, password) VALUES (?, ?, ?)',
-      [name, email, password]
+      [name, email, hashedPassword]
     );
     return result.insertId;
   }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Login from './components/Login';
@@ -21,7 +21,14 @@ function PrivateRoute({ children, adminOnly = false }) {
 }
 
 function AppRoutes() {
-  const { currentUser } = useAuth();
+  const { currentUser, logout: contextLogout } = useAuth();
+  const navigate = useNavigate();
+  
+  // Create a logout function that combines context logout and navigation
+  const logout = () => {
+    contextLogout();
+    navigate('/login');
+  };
   
   return (
     <Routes>

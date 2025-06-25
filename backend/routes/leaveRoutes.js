@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const authMiddleware = require('../middlewares/auth'); // Fixed path
 const leaveController = require('../controllers/leaveController');
 
-router.post('/', auth, leaveController.createLeave);
-router.get('/employee', auth, leaveController.getEmployeeLeaves);
-router.get('/all', auth, leaveController.getAllLeaves);
-router.put('/:id/status', auth, leaveController.updateLeaveStatus);
+router.post('/', authMiddleware, leaveController.createLeave);
+router.get('/employee', authMiddleware, leaveController.getEmployeeLeaves);
+router.get('/all', authMiddleware, leaveController.getAllLeaves);
+router.put('/:id/status', authMiddleware, leaveController.updateLeaveStatus);
 
 module.exports = router;
