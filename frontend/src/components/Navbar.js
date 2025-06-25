@@ -1,35 +1,36 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
+import { useAuth } from '../context/AuthContext';
 
-const Navbar = () => {
+export default function Navbar() {
+  const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user'));
-
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
 
   return (
     <AppBar position="static">
       <Toolbar>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
           Leave Management System
         </Typography>
-        {user && (
-          <>
-            <Typography variant="subtitle1" sx={{ mr: 2 }}>
-              {user.name} ({user.role})
+        
+        {currentUser && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="subtitle1">
+              {currentUser.name} ({currentUser.role})
             </Typography>
-            <Button color="inherit" onClick={handleLogout}>
+            <Button 
+              color="inherit" 
+              onClick={() => navigate(currentUser.role === 'admin' ? '/admin' : '/employee')}
+            >
+              Dashboard
+            </Button>
+            <Button color="inherit" onClick={logout}>
               Logout
             </Button>
-          </>
+          </Box>
         )}
       </Toolbar>
     </AppBar>
   );
-};
-
-export default Navbar;
+}

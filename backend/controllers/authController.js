@@ -1,24 +1,26 @@
-const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const Employee = require('../models/Employee');
 
-const login = async (req, res) => {
+exports.login = async (req, res) => {
   const { email, password } = req.body;
-  
+
   try {
     const employee = await Employee.findByEmail(email);
+    
     if (!employee) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const isMatch = await bcrypt.compare(password, employee.password);
+    
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const token = jwt.sign(
-      { id: employee.id, role: employee.role },
-      process.env.JWT_SECRET || 'secret_key',
+      { id: employee.id, email: employee.email, role: employee.role },
+      process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
@@ -28,13 +30,11 @@ const login = async (req, res) => {
         id: employee.id,
         name: employee.name,
         email: employee.email,
-        role: employee.role,
-        leave_balance: employee.leave_balance
+        role: employee.role
       }
     });
-  } catch (error) {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Server error' });
   }
 };
-
-module.exports = { login };

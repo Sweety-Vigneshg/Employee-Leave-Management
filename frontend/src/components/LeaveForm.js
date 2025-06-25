@@ -1,163 +1,149 @@
-import React, { useState } from 'react';
-import { Formik, Form, Field } from 'formik';
+import React from 'react';
+import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { 
-  TextField, 
-  Select, 
-  MenuItem, 
-  Button, 
-  Grid, 
-  FormControl, 
+import {
+  Box,
+  Button,
+  TextField,
+  FormControl,
   InputLabel,
+  MenuItem,
+  Select,
+  Grid,
   CircularProgress
 } from '@mui/material';
-import { applyLeave } from '../services/leaveAPI';
-import { useNavigate } from 'react-router-dom';
+import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { useAuth } from '../context/AuthContext';
+import { leaveAPI } from '../api';
 
-const LeaveSchema = Yup.object().shape({
-  leave_type_id: Yup.string().required('Required'),
-  start_date: Yup.date().required('Required'),
-  end_date: Yup.date()
-    .required('Required')
-    .min(Yup.ref('start_date'), 'End date must be after start date'),
-  reason: Yup.string().required('Required')
+const validationSchema = Yup.object({
+  startDate: Yup.date().required('Start date is required'),
+  endDate: Yup.date()
+    .required('End date is required')
+    .min(Yup.ref('startDate'), 'End date must be after start date'),
+  reason: Yup.string()
+    .required('Reason is required')
+    .min(10, 'Reason must be at least 10 characters'),
+  leaveType: Yup.string().required('Leave type is required'),
 });
 
-const LeaveForm = () => {
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user'));
+export default function LeaveForm({ onSubmitSuccess }) {
+  const { currentUser } = useAuth();
+  const [submitting, setSubmitting] = React.useState(false);
 
-  const calculateDays = (start, end) => {
-    if (!start || !end) return 0;
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    const diffTime = Math.abs(endDate - startDate);
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-  };
-
-  const handleSubmit = async (values) => {
-    setLoading(true);
-    try {
-      const days_requested = calculateDays(values.start_date, values.end_date);
-      await applyLeave({ ...values, days_requested });
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Error applying leave:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const formik = useFormik({
+    initialValues: {
+      startDate: new Date(),
+      endDate: new Date(),
+      reason: '',
+      leaveType: 'vacation',
+    },
+    validationSchema,
+    onSubmit: async (values) => {
+      setSubmitting(true);
+      try {
+        const token = localStorage.getItem('token');
+        await leaveAPI.create({
+          startDate: values.startDate.toISOString().split('T')[0],
+          endDate: values.endDate.toISOString().split('T')[0],
+          reason: values.reason,
+          leaveType: values.leaveType,
+        }, token);
+        
+        onSubmitSuccess();
+        formik.resetForm();
+      } catch (error) {
+        console.error('Submission error:', error);
+      } finally {
+        setSubmitting(false);
+      }
+    },
+  });
 
   return (
-    <Formik
-      initialValues={{
-        leave_type_id: '',
-        start_date: '',
-        end_date: '',
-        reason: ''
-      }}
-      validationSchema={LeaveSchema}
-      onSubmit={handleSubmit}
-    >
-      {({ errors, touched, values, setFieldValue }) => (
-        <Form>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Leave Type</InputLabel>
-                <Field
-                  as={Select}
-                  name="leave_type_id"
-                  label="Leave Type"
-                  error={touched.leave_type_id && !!errors.leave_type_id}
-                >
-                  <MenuItem value="1">Casual Leave</MenuItem>
-                  <MenuItem value="2">Sick Leave</MenuItem>
-                  <MenuItem value="3">Annual Leave</MenuItem>
-                </Field>
-              </FormControl>
-            </Grid>
-            
-            <Grid item xs={6}>
-              <Field
-                as={TextField}
-                name="start_date"
-                label="Start Date"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-                error={touched.start_date && !!errors.start_date}
-                helperText={touched.start_date && errors.start_date}
-                onChange={(e) => {
-                  setFieldValue('start_date', e.target.value);
-                  if (values.end_date) {
-                    const days = calculateDays(e.target.value, values.end_date);
-                    setFieldValue('days_requested', days);
-                  }
-                }}
-              />
-            </Grid>
-            
-            <Grid item xs={6}>
-              <Field
-                as={TextField}
-                name="end_date"
-                label="End Date"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-                error={touched.end_date && !!errors.end_date}
-                helperText={touched.end_date && errors.end_date}
-                onChange={(e) => {
-                  setFieldValue('end_date', e.target.value);
-                  if (values.start_date) {
-                    const days = calculateDays(values.start_date, e.target.value);
-                    setFieldValue('days_requested', days);
-                  }
-                }}
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Field
-                as={TextField}
-                name="days_requested"
-                label="Days Requested"
-                type="number"
-                fullWidth
-                disabled
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Field
-                as={TextField}
-                name="reason"
-                label="Reason"
-                multiline
-                rows={4}
-                fullWidth
-                error={touched.reason && !!errors.reason}
-                helperText={touched.reason && errors.reason}
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Button 
-                type="submit" 
-                variant="contained" 
-                color="primary"
-                disabled={loading}
-              >
-                {loading ? <CircularProgress size={24} /> : 'Submit Application'}
-              </Button>
-            </Grid>
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <Box component="form" onSubmit={formik.handleSubmit}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6}>
+            <DesktopDatePicker
+              label="Start Date"
+              inputFormat="MM/dd/yyyy"
+              value={formik.values.startDate}
+              onChange={(date) => formik.setFieldValue('startDate', date)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  fullWidth
+                  error={formik.touched.startDate && !!formik.errors.startDate}
+                  helperText={formik.touched.startDate && formik.errors.startDate}
+                />
+              )}
+            />
           </Grid>
-        </Form>
-      )}
-    </Formik>
+          
+          <Grid item xs={12} sm={6}>
+            <DesktopDatePicker
+              label="End Date"
+              inputFormat="MM/dd/yyyy"
+              value={formik.values.endDate}
+              onChange={(date) => formik.setFieldValue('endDate', date)}
+              minDate={formik.values.startDate}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  fullWidth
+                  error={formik.touched.endDate && !!formik.errors.endDate}
+                  helperText={formik.touched.endDate && formik.errors.endDate}
+                />
+              )}
+            />
+          </Grid>
+          
+          <Grid item xs={12}>
+            <FormControl fullWidth>
+              <InputLabel>Leave Type</InputLabel>
+              <Select
+                name="leaveType"
+                value={formik.values.leaveType}
+                onChange={formik.handleChange}
+                label="Leave Type"
+              >
+                <MenuItem value="vacation">Vacation</MenuItem>
+                <MenuItem value="sick">Sick Leave</MenuItem>
+                <MenuItem value="personal">Personal Leave</MenuItem>
+                <MenuItem value="other">Other</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              label="Reason"
+              name="reason"
+              value={formik.values.reason}
+              onChange={formik.handleChange}
+              error={formik.touched.reason && !!formik.errors.reason}
+              helperText={formik.touched.reason && formik.errors.reason}
+            />
+          </Grid>
+          
+          <Grid item xs={12}>
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              disabled={submitting}
+            >
+              {submitting ? <CircularProgress size={24} /> : 'Submit Application'}
+            </Button>
+          </Grid>
+        </Grid>
+      </Box>
+    </LocalizationProvider>
   );
-};
-
-export default LeaveForm;
+}

@@ -1,159 +1,164 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
-  Paper, 
-  Chip,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Typography,
+  Box,
+  TablePagination,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip
 } from '@mui/material';
-import { getMyLeaves, getPendingLeaves, updateLeaveStatus } from '../services/leaveAPI';
-import { format } from 'date-fns';
+import { leaveAPI } from '../api';
 
-const LeaveList = ({ isManagerView = false }) => {
+const statusColors = {
+  Pending: 'default',
+  Approved: 'success',
+  Rejected: 'error',
+};
+
+export default function LeaveList({ isAdmin = false }) {
   const [leaves, setLeaves] = useState([]);
-  const [selectedLeave, setSelectedLeave] = useState(null);
-  const [comments, setComments] = useState('');
-  const [openDialog, setOpenDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
 
   useEffect(() => {
     const fetchLeaves = async () => {
       try {
-        const data = isManagerView 
-          ? await getPendingLeaves() 
-          : await getMyLeaves();
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        const data = isAdmin 
+          ? await leaveAPI.getAllLeaves(token) 
+          : await leaveAPI.getEmployeeLeaves(token);
         setLeaves(data);
       } catch (error) {
         console.error('Error fetching leaves:', error);
+      } finally {
+        setLoading(false);
       }
     };
-    
+
     fetchLeaves();
-  }, [isManagerView]);
+  }, [isAdmin]);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'approved': return 'success';
-      case 'rejected': return 'error';
-      default: return 'warning';
-    }
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
   };
 
-  const handleApproveReject = (leave, action) => {
-    setSelectedLeave(leave);
-    setComments('');
-    setOpenDialog(true);
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
 
-  const handleSubmitDecision = async () => {
-    if (!selectedLeave) return;
-    
+  const handleStatusChange = async (leaveId, status) => {
     try {
-      await updateLeaveStatus(selectedLeave.id, comments ? 'rejected' : 'approved', comments);
-      setLeaves(leaves.filter(leave => leave.id !== selectedLeave.id));
-      setOpenDialog(false);
+      const token = localStorage.getItem('token');
+      await leaveAPI.updateStatus(leaveId, status, token);
+      setLeaves(leaves.map(leave => 
+        leave.id === leaveId ? { ...leave, status } : leave
+      ));
     } catch (error) {
-      console.error('Error updating leave status:', error);
+      console.error('Error updating status:', error);
     }
   };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" my={4}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (leaves.length === 0) {
+    return (
+      <Box my={4}>
+        <Typography variant="body1" align="center">
+          No leave applications found
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
-    <>
-      <TableContainer component={Paper}>
-        <Table>
+    <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+      <TableContainer>
+        <Table stickyHeader>
           <TableHead>
             <TableRow>
-              {isManagerView && <TableCell>Employee</TableCell>}
-              <TableCell>Leave Type</TableCell>
+              {isAdmin && <TableCell>Employee</TableCell>}
               <TableCell>Start Date</TableCell>
               <TableCell>End Date</TableCell>
-              <TableCell>Days</TableCell>
+              <TableCell>Type</TableCell>
+              <TableCell>Reason</TableCell>
               <TableCell>Status</TableCell>
-              {isManagerView && <TableCell>Actions</TableCell>}
+              {isAdmin && <TableCell>Action</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
-            {leaves.map((leave) => (
-              <TableRow key={leave.id}>
-                {isManagerView && <TableCell>{leave.employee_name}</TableCell>}
-                <TableCell>{leave.leave_type_name}</TableCell>
-                <TableCell>{format(new Date(leave.start_date), 'dd MMM yyyy')}</TableCell>
-                <TableCell>{format(new Date(leave.end_date), 'dd MMM yyyy')}</TableCell>
-                <TableCell>{leave.days_requested}</TableCell>
-                <TableCell>
-                  <Chip 
-                    label={leave.status} 
-                    color={getStatusColor(leave.status)} 
-                    variant="outlined" 
-                  />
-                </TableCell>
-                {isManagerView && leave.status === 'pending' && (
+            {leaves
+              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+              .map((leave) => (
+                <TableRow key={leave.id}>
+                  {isAdmin && (
+                    <TableCell>{leave.employee_name || leave.employeeId}</TableCell>
+                  )}
+                  <TableCell>{new Date(leave.start_date).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(leave.end_date).toLocaleDateString()}</TableCell>
+                  <TableCell>{leave.leave_type || 'N/A'}</TableCell>
                   <TableCell>
-                    <Button 
-                      variant="contained" 
-                      color="success" 
-                      size="small"
-                      sx={{ mr: 1 }}
-                      onClick={() => handleApproveReject(leave, 'approve')}
-                    >
-                      Approve
-                    </Button>
-                    <Button 
-                      variant="contained" 
-                      color="error" 
-                      size="small"
-                      onClick={() => handleApproveReject(leave, 'reject')}
-                    >
-                      Reject
-                    </Button>
+                    <Typography variant="body2" sx={{ 
+                      display: '-webkit-box',
+                      WebkitBoxOrient: 'vertical',
+                      WebkitLineClamp: 2,
+                      overflow: 'hidden'
+                    }}>
+                      {leave.reason}
+                    </Typography>
                   </TableCell>
-                )}
-              </TableRow>
-            ))}
+                  <TableCell>
+                    <Chip 
+                      label={leave.status} 
+                      color={statusColors[leave.status] || 'default'} 
+                    />
+                  </TableCell>
+                  {isAdmin && leave.status === 'Pending' && (
+                    <TableCell>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          value=""
+                          onChange={(e) => handleStatusChange(leave.id, e.target.value)}
+                          displayEmpty
+                        >
+                          <MenuItem value="" disabled>Change Status</MenuItem>
+                          <MenuItem value="Approved">Approve</MenuItem>
+                          <MenuItem value="Rejected">Reject</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       </TableContainer>
-
-      {/* Decision Dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
-        <DialogTitle>
-          {selectedLeave?.employee_name ? `Leave Application - ${selectedLeave.employee_name}` : 'Leave Application'}
-        </DialogTitle>
-        <DialogContent>
-          <p><strong>Reason:</strong> {selectedLeave?.reason}</p>
-          {!comments && (
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Rejection Comments"
-              fullWidth
-              multiline
-              rows={3}
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-            />
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-          <Button 
-            onClick={handleSubmitDecision} 
-            color={comments ? "error" : "success"}
-          >
-            {comments ? 'Confirm Reject' : 'Confirm Approve'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
+      <TablePagination
+        rowsPerPageOptions={[5, 10, 25]}
+        component="div"
+        count={leaves.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={handleChangePage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
+      />
+    </Paper>
   );
-};
-
-export default LeaveList;
+}
