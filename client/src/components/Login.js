@@ -100,10 +100,10 @@ const Login = () => {
               Demo Accounts
             </Typography>
             <Typography variant="body2">
-              <strong>admin</strong> / <strong>admin123</strong> (Admin)
+              <strong>admin</strong> / <strong>admin123@</strong> (Admin)
             </Typography>
             <Typography variant="body2">
-              <strong>employee</strong> / <strong>employee123</strong> (Employee)
+              <strong>vicky</strong> / <strong>vicky123@</strong> (Employee)
             </Typography>
           </Box>
         </form>
