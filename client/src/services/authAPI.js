@@ -22,5 +22,29 @@ export const authAPI = {
       console.error('Failed to get user:', error);
       return null;
     }
+  },
+  
+  getProfile: async () => {
+    const token = localStorage.getItem('token');
+    const response = await axios.get('/api/profile', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+  
+  updateProfile: async (profileData) => {
+    const token = localStorage.getItem('token');
+    const response = await axios.put('/api/profile', profileData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+  
+  changePassword: async (passwordData) => {
+    const token = localStorage.getItem('token');
+    const response = await axios.put('/api/change-password', passwordData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
   }
 };
