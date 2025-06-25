@@ -23,12 +23,23 @@ const LeaveForm = ({ onSuccess }) => {
   const [error, setError] = useState('');
 
   const validationSchema = Yup.object({
-    startDate: Yup.date()
+    startDate: Yup.object()
       .required('Start date is required')
-      .min(new Date(), 'Start date must be in the future'),
-    endDate: Yup.date()
+      .test(
+        'is-future',
+        'Start date must be in the future',
+        value => value && value.isAfter(dayjs().subtract(1, 'day'))
+      ),
+    endDate: Yup.object()
       .required('End date is required')
-      .min(Yup.ref('startDate'), 'End date must be after start date'),
+      .test(
+        'after-start',
+        'End date must be after start date',
+        function(value) {
+          const startDate = this.parent.startDate;
+          return value && startDate && value.isAfter(startDate);
+        }
+      ),
     reason: Yup.string()
       .required('Reason is required')
       .min(10, 'Reason must be at least 10 characters')
@@ -36,8 +47,8 @@ const LeaveForm = ({ onSuccess }) => {
 
   const formik = useFormik({
     initialValues: {
-      startDate: dayjs().add(1, 'day').toDate(),
-      endDate: dayjs().add(2, 'day').toDate(),
+      startDate: dayjs().add(1, 'day'),
+      endDate: dayjs().add(2, 'day'),
       reason: ''
     },
     validationSchema,
@@ -47,8 +58,8 @@ const LeaveForm = ({ onSuccess }) => {
       
       try {
         await leaveAPI.applyLeave(
-          dayjs(values.startDate).format('YYYY-MM-DD'),
-          dayjs(values.endDate).format('YYYY-MM-DD'),
+          values.startDate.format('YYYY-MM-DD'),
+          values.endDate.format('YYYY-MM-DD'),
           values.reason
         );
         onSuccess();
@@ -105,7 +116,7 @@ const LeaveForm = ({ onSuccess }) => {
                 label="End Date"
                 value={formik.values.endDate}
                 onChange={(date) => formik.setFieldValue('endDate', date)}
-                minDate={dayjs(formik.values.startDate).add(1, 'day')}
+                minDate={formik.values.startDate.add(1, 'day')}
                 renderInput={(params) => (
                   <TextField 
                     {...params} 

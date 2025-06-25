@@ -21,6 +21,7 @@ import {
   AccessTime as PendingIcon
 } from '@mui/icons-material';
 import { leaveAPI } from '../services/leaveAPI';
+import dayjs from 'dayjs';
 
 const LeaveList = ({ isAdmin }) => {
   const [leaves, setLeaves] = useState([]);
@@ -58,7 +59,13 @@ const LeaveList = ({ isAdmin }) => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
+    return dayjs(dateString).format('MMM D, YYYY');
+  };
+
+  const calculateDuration = (startDate, endDate) => {
+    const start = dayjs(startDate);
+    const end = dayjs(endDate);
+    return end.diff(start, 'day') + 1;
   };
 
   if (loading) {
@@ -116,9 +123,7 @@ const LeaveList = ({ isAdmin }) => {
               <TableCell>{formatDate(leave.start_date)}</TableCell>
               <TableCell>{formatDate(leave.end_date)}</TableCell>
               <TableCell>
-                {Math.ceil(
-                  (new Date(leave.end_date) - new Date(leave.start_date)) / (1000 * 60 * 60 * 24)
-                ) + 1} days
+                {calculateDuration(leave.start_date, leave.end_date)} days
               </TableCell>
               <TableCell sx={{ maxWidth: 300 }}>{leave.reason}</TableCell>
               <TableCell>
