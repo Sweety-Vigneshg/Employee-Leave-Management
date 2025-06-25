@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { TextField, Button, Container, Box, Typography, Paper } from '@mui/material';
 
@@ -9,6 +9,10 @@ const Login = () => {
   const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the redirect location or default to home
+  const from = location.state?.from?.pathname || '/';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,7 +25,8 @@ const Login = () => {
     
     const success = await login(username, password);
     if (success) {
-      navigate('/');
+      // Redirect to the originally requested page
+      navigate(from, { replace: true });
     } else {
       setError('Invalid username or password');
     }
@@ -86,7 +91,7 @@ const Login = () => {
           
           <Box sx={{ textAlign: 'center', mt: 2 }}>
             <Typography variant="body2">
-              Don't have an account? <Link to="/signup">Sign up</Link>
+              Don't have an account? <Link to="/signup" state={{ from }}>Sign up</Link>
             </Typography>
           </Box>
           
