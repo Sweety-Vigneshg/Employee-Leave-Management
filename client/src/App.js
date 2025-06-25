@@ -5,6 +5,7 @@ import Login from './components/Login';
 import EmployeeView from './pages/EmployeeView';
 import AdminView from './pages/AdminView';
 import Navbar from './components/Navbar';
+import { Box, Typography } from '@mui/material'; // ADDED MISSING IMPORTS
 
 function App() {
   const { user, loading } = useAuth();

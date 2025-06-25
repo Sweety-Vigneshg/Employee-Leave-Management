@@ -3,6 +3,7 @@ import { Container, Box, Typography, Button, Grid } from '@mui/material';
 import LeaveList from '../components/LeaveList';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
+import LeaveForm from '../components/LeaveForm'; // ADDED MISSING IMPORT
 
 const AdminView = () => {
   const { user } = useAuth();
