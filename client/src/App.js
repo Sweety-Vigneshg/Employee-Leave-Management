@@ -2,10 +2,11 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
+import Signup from './components/Signup';
 import EmployeeView from './pages/EmployeeView';
 import AdminView from './pages/AdminView';
 import Navbar from './components/Navbar';
-import { Box, Typography } from '@mui/material'; // ADDED MISSING IMPORTS
+import { Box, Typography } from '@mui/material';
 
 function App() {
   const { user, loading } = useAuth();
@@ -32,6 +33,10 @@ function App() {
         <Route 
           path="/login" 
           element={!user ? <Login /> : <Navigate to="/" />} 
+        />
+        <Route 
+          path="/signup" 
+          element={!user ? <Signup /> : <Navigate to="/" />} 
         />
         <Route 
           path="/" 

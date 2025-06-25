@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AppBar, Toolbar, Typography, Button, Box, Avatar } from '@mui/material';
-import { WorkOutline, ExitToApp, Dashboard } from '@mui/icons-material';
+import { WorkOutline, ExitToApp, Dashboard, PersonAdd } from '@mui/icons-material';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -33,6 +33,17 @@ const Navbar = () => {
             >
               Dashboard
             </Button>
+            
+            {user.role === 'admin' && (
+              <Button 
+                component={Link} 
+                to="/admin" 
+                color="inherit"
+                startIcon={<PersonAdd />}
+              >
+                Admin Panel
+              </Button>
+            )}
           </Box>
         </Box>
         

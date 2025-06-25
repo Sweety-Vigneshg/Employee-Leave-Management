@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { TextField, Button, Container, Box, Typography, Paper, Link } from '@mui/material';
+import { TextField, Button, Container, Box, Typography, Paper } from '@mui/material';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -86,10 +86,18 @@ const Login = () => {
           
           <Box sx={{ textAlign: 'center', mt: 2 }}>
             <Typography variant="body2">
-              Demo Accounts: 
-              <br />
+              Don't have an account? <Link to="/signup">Sign up</Link>
+            </Typography>
+          </Box>
+          
+          <Box sx={{ textAlign: 'center', mt: 3, pt: 2, borderTop: '1px solid #eee' }}>
+            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+              Demo Accounts
+            </Typography>
+            <Typography variant="body2">
               <strong>admin</strong> / <strong>admin123</strong> (Admin)
-              <br />
+            </Typography>
+            <Typography variant="body2">
               <strong>employee</strong> / <strong>employee123</strong> (Employee)
             </Typography>
           </Box>
