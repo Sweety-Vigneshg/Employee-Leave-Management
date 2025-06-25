@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -13,8 +13,8 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// MySQL Connection
-const db = mysql.createPool({
+// Create MySQL connection pool
+const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
@@ -24,39 +24,101 @@ const db = mysql.createPool({
   queueLimit: 0
 });
 
-// Test DB connection
-db.getConnection((err, connection) => {
-  if (err) {
-    console.error('Error connecting to database:', err);
-    return;
+// Initialize database
+async function initializeDatabase() {
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    
+    // Create users table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        role ENUM('employee', 'admin') NOT NULL DEFAULT 'employee',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Create leaves table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS leaves (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        reason TEXT NOT NULL,
+        leave_type VARCHAR(50) NOT NULL DEFAULT 'vacation',
+        status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Add foreign key constraint if missing
+    const [fkCheck] = await connection.query(`
+      SELECT COUNT(*) AS fk_exists
+      FROM information_schema.TABLE_CONSTRAINTS
+      WHERE CONSTRAINT_SCHEMA = ?
+        AND TABLE_NAME = 'leaves'
+        AND CONSTRAINT_NAME = 'leaves_ibfk_1'
+        AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+    `, [process.env.DB_NAME || 'leave_management']);
+    
+    if (fkCheck[0].fk_exists === 0) {
+      await connection.query(`
+        ALTER TABLE leaves
+        ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      `);
+      console.log('Added foreign key constraint to leaves table');
+    }
+    
+    // Add sample users if none exist
+    const [userCount] = await connection.query('SELECT COUNT(*) AS count FROM users');
+    if (userCount[0].count === 0) {
+      const hashedAdminPass = await bcrypt.hash('admin123', 10);
+      const hashedEmpPass = await bcrypt.hash('employee123', 10);
+      
+      await connection.query(
+        'INSERT INTO users (username, password, role) VALUES ?',
+        [
+          [
+            ['admin', hashedAdminPass, 'admin'],
+            ['employee', hashedEmpPass, 'employee']
+          ]
+        ]
+      );
+      console.log('Added sample users');
+    }
+    
+    // Add sample leaves if none exist
+    const [leaveCount] = await connection.query('SELECT COUNT(*) AS count FROM leaves');
+    if (leaveCount[0].count === 0) {
+      const [users] = await connection.query('SELECT id FROM users');
+      
+      if (users.length >= 2) {
+        await connection.query(
+          'INSERT INTO leaves (user_id, start_date, end_date, reason, leave_type, status) VALUES ?',
+          [
+            [
+              [users[0].id, '2023-07-01', '2023-07-03', 'Family vacation', 'vacation', 'approved'],
+              [users[1].id, '2023-07-05', '2023-07-06', 'Doctor appointment', 'sick', 'pending']
+            ]
+          ]
+        );
+        console.log('Added sample leave applications');
+      }
+    }
+    
+    console.log('Database initialized successfully');
+  } catch (error) {
+    console.error('Database initialization error:', error);
+  } finally {
+    if (connection) connection.release();
   }
-  console.log('Connected to MySQL database');
-  connection.release();
-});
+}
 
-// Create tables if they don't exist
-db.query(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    role ENUM('employee', 'admin') NOT NULL DEFAULT 'employee',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )
-`);
-
-db.query(`
-  CREATE TABLE IF NOT EXISTS leaves (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    reason TEXT NOT NULL,
-    status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  )
-`);
+initializeDatabase();
 
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
@@ -91,129 +153,126 @@ app.post('/api/register', async (req, res) => {
   
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    
-    db.query(
+    const [result] = await pool.query(
       'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-      [username, hashedPassword, role || 'employee'],
-      (error, results) => {
-        if (error) {
-          if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: 'Username already exists' });
-          }
-          return res.status(500).json({ message: 'Database error' });
-        }
-        
-        res.status(201).json({ message: 'User registered successfully' });
-      }
+      [username, hashedPassword, role || 'employee']
     );
-  } catch (err) {
-    res.status(500).json({ message: 'Error hashing password' });
+    
+    res.status(201).json({ message: 'User registered successfully' });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: 'Username already exists' });
+    }
+    console.error('Registration error:', error);
+    res.status(500).json({ message: 'Database error', error: error.message });
   }
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   
   if (!username || !password) {
     return res.status(400).json({ message: 'Username and password are required' });
   }
   
-  db.query(
-    'SELECT * FROM users WHERE username = ?',
-    [username],
-    async (error, results) => {
-      if (error) {
-        return res.status(500).json({ message: 'Database error' });
-      }
-      
-      if (results.length === 0) {
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
-      
-      const user = results[0];
-      
-      try {
-        const passwordMatch = await bcrypt.compare(password, user.password);
-        
-        if (!passwordMatch) {
-          return res.status(401).json({ message: 'Invalid credentials' });
-        }
-        
-        const token = jwt.sign(
-          { id: user.id, username: user.username, role: user.role },
-          JWT_SECRET,
-          { expiresIn: '1h' }
-        );
-        
-        res.json({ 
-          token,
-          user: {
-            id: user.id,
-            username: user.username,
-            role: user.role
-          }
-        });
-      } catch (err) {
-        res.status(500).json({ message: 'Error comparing passwords' });
-      }
+  try {
+    const [users] = await pool.query(
+      'SELECT * FROM users WHERE username = ?',
+      [username]
+    );
+    
+    if (users.length === 0) {
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
-  );
+    
+    const user = users[0];
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    
+    if (!passwordMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    
+    res.json({ 
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Database error', error: error.message });
+  }
 });
 
 app.get('/api/user', authenticateJWT, (req, res) => {
   res.json(req.user);
 });
 
-app.post('/api/leaves', authenticateJWT, (req, res) => {
-  const { start_date, end_date, reason } = req.body;
+app.post('/api/leaves', authenticateJWT, async (req, res) => {
+  const { start_date, end_date, reason, leave_type } = req.body;
   const userId = req.user.id;
   
   if (!start_date || !end_date || !reason) {
     return res.status(400).json({ message: 'All fields are required' });
   }
   
-  db.query(
-    'INSERT INTO leaves (user_id, start_date, end_date, reason, status) VALUES (?, ?, ?, ?, ?)',
-    [userId, start_date, end_date, reason, 'pending'],
-    (error, results) => {
-      if (error) {
-        return res.status(500).json({ message: 'Database error' });
-      }
-      
-      res.status(201).json({ message: 'Leave application submitted successfully' });
-    }
-  );
+  try {
+    await pool.query(
+      'INSERT INTO leaves (user_id, start_date, end_date, reason, leave_type, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, start_date, end_date, reason, leave_type || 'vacation', 'pending']
+    );
+    
+    res.status(201).json({ message: 'Leave application submitted successfully' });
+  } catch (error) {
+    console.error('Leave submission error:', error);
+    res.status(500).json({ 
+      message: 'Database error', 
+      error: error.message,
+      code: error.code
+    });
+  }
 });
 
-app.get('/api/leaves', authenticateJWT, (req, res) => {
+app.get('/api/leaves', authenticateJWT, async (req, res) => {
   const userId = req.user.id;
   const role = req.user.role;
   
-  let query = '';
-  let params = [];
-  
-  if (role === 'admin') {
-    query = `
-      SELECT leaves.*, users.username 
-      FROM leaves 
-      JOIN users ON leaves.user_id = users.id
-      ORDER BY leaves.created_at DESC
-    `;
-  } else {
-    query = 'SELECT * FROM leaves WHERE user_id = ? ORDER BY created_at DESC';
-    params = [userId];
-  }
-  
-  db.query(query, params, (error, results) => {
-    if (error) {
-      return res.status(500).json({ message: 'Database error' });
+  try {
+    let leaves;
+    if (role === 'admin') {
+      [leaves] = await pool.query(`
+        SELECT leaves.*, users.username 
+        FROM leaves 
+        JOIN users ON leaves.user_id = users.id
+        ORDER BY leaves.created_at DESC
+      `);
+    } else {
+      [leaves] = await pool.query(
+        'SELECT * FROM leaves WHERE user_id = ? ORDER BY created_at DESC',
+        [userId]
+      );
     }
     
-    res.json(results);
-  });
+    res.json(leaves);
+  } catch (error) {
+    console.error('Leave retrieval error:', error);
+    res.status(500).json({ 
+      message: 'Database error', 
+      error: error.message,
+      code: error.code
+    });
+  }
 });
 
-app.put('/api/leaves/:id', authenticateJWT, (req, res) => {
+app.put('/api/leaves/:id', authenticateJWT, async (req, res) => {
   const { status } = req.body;
   const leaveId = req.params.id;
   const role = req.user.role;
@@ -226,21 +285,25 @@ app.put('/api/leaves/:id', authenticateJWT, (req, res) => {
     return res.status(400).json({ message: 'Invalid status value' });
   }
   
-  db.query(
-    'UPDATE leaves SET status = ? WHERE id = ?',
-    [status, leaveId],
-    (error, results) => {
-      if (error) {
-        return res.status(500).json({ message: 'Database error' });
-      }
-      
-      if (results.affectedRows === 0) {
-        return res.status(404).json({ message: 'Leave not found' });
-      }
-      
-      res.json({ message: 'Leave status updated successfully' });
+  try {
+    const [result] = await pool.query(
+      'UPDATE leaves SET status = ? WHERE id = ?',
+      [status, leaveId]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Leave not found' });
     }
-  );
+    
+    res.json({ message: 'Leave status updated successfully' });
+  } catch (error) {
+    console.error('Status update error:', error);
+    res.status(500).json({ 
+      message: 'Database error', 
+      error: error.message,
+      code: error.code
+    });
+  }
 });
 
 // Start server

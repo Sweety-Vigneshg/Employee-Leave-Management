@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Container, Box, Typography, Grid } from '@mui/material';
 import LeaveForm from '../components/LeaveForm';
 import LeaveList from '../components/LeaveList';
-import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
 const EmployeeView = () => {
@@ -12,7 +11,6 @@ const EmployeeView = () => {
   if (!user) {
     return (
       <Container>
-        <Navbar />
         <Box sx={{ textAlign: 'center', mt: 4 }}>
           <Typography variant="h5" color="error">
             Please log in to view this page
@@ -27,30 +25,55 @@ const EmployeeView = () => {
   };
 
   return (
-    <>
-      <Navbar />
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Employee Dashboard
-        </Typography>
-        
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" gutterBottom>
+    <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+        Employee Dashboard
+      </Typography>
+      
+      <Grid container spacing={4}>
+        <Grid item xs={12} md={6}>
+          <Box sx={{ 
+            backgroundColor: 'white', 
+            borderRadius: 2, 
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+            p: 3,
+            height: '100%'
+          }}>
+            <Typography variant="h5" component="h2" gutterBottom sx={{ 
+              fontWeight: 600, 
+              color: '#1976d2',
+              mb: 3,
+              pb: 1,
+              borderBottom: '2px solid #f0f0f0'
+            }}>
               Apply for Leave
             </Typography>
             <LeaveForm onSuccess={handleLeaveSubmitSuccess} />
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" gutterBottom>
+          </Box>
+        </Grid>
+        
+        <Grid item xs={12} md={6}>
+          <Box sx={{ 
+            backgroundColor: 'white', 
+            borderRadius: 2, 
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+            p: 3,
+            height: '100%'
+          }}>
+            <Typography variant="h5" component="h2" gutterBottom sx={{ 
+              fontWeight: 600, 
+              color: '#1976d2',
+              mb: 3,
+              pb: 1,
+              borderBottom: '2px solid #f0f0f0'
+            }}>
               My Leave Applications
             </Typography>
             <LeaveList isAdmin={false} key={refreshKey} />
-          </Grid>
+          </Box>
         </Grid>
-      </Container>
-    </>
+      </Grid>
+    </Container>
   );
 };
 

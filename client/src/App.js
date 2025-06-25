@@ -22,45 +22,46 @@ function App() {
 
   return (
     <div className="App">
+      {/* Navbar should only be in one place - here at the top level */}
       {user && <Navbar />}
-      <Routes>
-        {/* Public routes accessible without authentication */}
-        <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
-        <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/" replace />} />
-        
-        {/* Protected routes */}
-        <Route 
-          path="/" 
-          element={
-            user ? (
-              user.role === 'admin' ? 
-                <Navigate to="/admin" replace /> : 
-                <Navigate to="/employee" replace />
-            ) : (
-              <Navigate to="/login" state={{ from: location }} replace />
-            )
-          } 
-        />
-        <Route 
-          path="/employee" 
-          element={
-            user ? 
-              <EmployeeView /> : 
-              <Navigate to="/login" state={{ from: location }} replace />
-          } 
-        />
-        <Route 
-          path="/admin" 
-          element={
-            user && user.role === 'admin' ? 
-              <AdminView /> : 
-              <Navigate to="/" replace />
-          } 
-        />
-        
-        {/* Catch-all route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      
+      <Box sx={{ pt: 8, height: '100%' }}> {/* Added padding to account for fixed navbar */}
+        <Routes>
+          <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
+          <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/" replace />} />
+          
+          <Route 
+            path="/" 
+            element={
+              user ? (
+                user.role === 'admin' ? 
+                  <Navigate to="/admin" replace /> : 
+                  <Navigate to="/employee" replace />
+              ) : (
+                <Navigate to="/login" state={{ from: location }} replace />
+              )
+            } 
+          />
+          <Route 
+            path="/employee" 
+            element={
+              user ? 
+                <EmployeeView /> : 
+                <Navigate to="/login" state={{ from: location }} replace />
+            } 
+          />
+          <Route 
+            path="/admin" 
+            element={
+              user && user.role === 'admin' ? 
+                <AdminView /> : 
+                <Navigate to="/" replace />
+            } 
+          />
+          
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Box>
     </div>
   );
 }
