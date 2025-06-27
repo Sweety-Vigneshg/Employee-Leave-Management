@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { authAPI } from '../services/authAPI';
 import { 
   AppBar, 
   Toolbar, 
@@ -35,8 +36,27 @@ const Navbar = () => {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationAnchor, setNotificationAnchor] = useState(null);
+  const [profile, setProfile] = useState(null);
   const open = Boolean(anchorEl);
   const notificationOpen = Boolean(notificationAnchor);
+
+  // Fetch user profile data
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (user) {
+        try {
+          const profileData = await authAPI.getProfile();
+          setProfile(profileData);
+        } catch (error) {
+          console.error('Failed to fetch profile for navbar:', error);
+          // Fallback to user data from auth context
+          setProfile(null);
+        }
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -73,7 +93,42 @@ const Navbar = () => {
     navigate(user.role === 'admin' ? "/admin" : "/employee");
   };
 
+  // Helper functions to get user display data
+  const getDisplayName = () => {
+    if (profile?.full_name) return profile.full_name;
+    if (user?.full_name) return user.full_name;
+    if (user?.name) return user.name;
+    return user?.username || 'User';
+  };
+
+  const getDisplayEmail = () => {
+    if (profile?.email) return profile.email;
+    if (user?.email) return user.email;
+    return 'No email provided';
+  };
+
+  const getDisplayPosition = () => {
+    return profile?.position || 'Employee';
+  };
+
+  const getDisplayDepartment = () => {
+    return profile?.department || 'Department';
+  };
+
+  const getInitials = (name) => {
+    if (!name) return user?.username?.charAt(0)?.toUpperCase() || 'U';
+    return name.split(' ').map(word => word.charAt(0)).join('').toUpperCase().slice(0, 2);
+  };
+
+  const getUserRole = () => {
+    return user?.role || 'employee';
+  };
+
   if (!user) return null;
+
+  const displayName = getDisplayName();
+  const displayEmail = getDisplayEmail();
+  const userRole = getUserRole();
 
   return (
     <AppBar 
@@ -83,8 +138,8 @@ const Navbar = () => {
         zIndex: (theme) => theme.zIndex.drawer + 1,
         backgroundColor: 'white',
         borderBottom: '1px solid #e0e7ff',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', // Enhanced shadow for better separation
-        height: 80 // Define explicit height
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        height: 80
       }}
     >
       <Container maxWidth="xl">
@@ -92,7 +147,7 @@ const Navbar = () => {
           sx={{ 
             px: 0, 
             py: 1,
-            minHeight: '80px !important', // Ensure consistent height
+            minHeight: '80px !important',
             height: 80
           }}
         >
@@ -162,23 +217,38 @@ const Navbar = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {/* Role Badge */}
             <Chip 
-              icon={user.role === 'admin' ? <AdminPanelSettings /> : <Person />}
-              label={user.role === 'admin' ? 'Administrator' : 'Employee'}
+              icon={userRole === 'admin' ? <AdminPanelSettings /> : <Person />}
+              label={userRole === 'admin' ? 'Administrator' : 'Employee'}
               size="small"
               sx={{ 
-                backgroundColor: user.role === 'admin' 
+                backgroundColor: userRole === 'admin' 
                   ? alpha('#f59e0b', 0.1) 
                   : alpha('#10b981', 0.1),
-                color: user.role === 'admin' ? '#f59e0b' : '#10b981',
+                color: userRole === 'admin' ? '#f59e0b' : '#10b981',
                 fontWeight: 600,
-                border: user.role === 'admin' 
+                border: userRole === 'admin' 
                   ? '1px solid #fde68a' 
                   : '1px solid #d1fae5',
                 '& .MuiChip-icon': { 
-                  color: user.role === 'admin' ? '#f59e0b' : '#10b981'
+                  color: userRole === 'admin' ? '#f59e0b' : '#10b981'
                 }
               }}
             />
+            
+            {/* Position Badge (if available) */}
+            {profile?.position && (
+              <Chip 
+                label={getDisplayPosition()}
+                size="small"
+                sx={{ 
+                  backgroundColor: alpha('#3b82f6', 0.1),
+                  color: '#3b82f6',
+                  fontWeight: 500,
+                  border: '1px solid #bfdbfe',
+                  display: { xs: 'none', md: 'flex' }
+                }}
+              />
+            )}
             
             {/* Notifications */}
             <IconButton
@@ -234,14 +304,14 @@ const Navbar = () => {
                 fontWeight: 'bold',
                 fontSize: 14
               }}>
-                {(user.name || user.username).charAt(0).toUpperCase()}
+                {getInitials(displayName)}
               </Avatar>
               <Box sx={{ textAlign: 'left', display: { xs: 'none', sm: 'block' } }}>
                 <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                  {user.name || user.full_name || user.username}
+                  {displayName}
                 </Typography>
                 <Typography variant="caption" sx={{ color: '#64748b' }}>
-                  {user.email || 'No email provided'}
+                  {profile?.position ? `${profile.position} • ${displayEmail}` : displayEmail}
                 </Typography>
               </Box>
               <KeyboardArrowDown sx={{ fontSize: 20, color: '#64748b' }} />
@@ -259,7 +329,7 @@ const Navbar = () => {
                 overflow: 'visible',
                 filter: 'drop-shadow(0px 4px 12px rgba(0,0,0,0.15))',
                 mt: 1.5,
-                minWidth: 220,
+                minWidth: 280,
                 borderRadius: 2,
                 border: '1px solid #e0e7ff',
                 '&:before': {
@@ -283,13 +353,68 @@ const Navbar = () => {
             anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
           >
             {/* User Info Header */}
-            <Box sx={{ px: 3, py: 2, borderBottom: '1px solid #f1f5f9' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                {user.name || user.full_name || user.username}
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#64748b' }}>
-                {user.email || 'No email provided'}
-              </Typography>
+            <Box sx={{ px: 3, py: 2.5, borderBottom: '1px solid #f1f5f9' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                <Avatar sx={{ 
+                  bgcolor: theme.palette.primary.main,
+                  color: 'white',
+                  width: 48, 
+                  height: 48, 
+                  fontWeight: 'bold',
+                  fontSize: 18,
+                  mr: 2
+                }}>
+                  {getInitials(displayName)}
+                </Avatar>
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1e293b' }}>
+                    {displayName}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#64748b' }}>
+                    {displayEmail}
+                  </Typography>
+                </Box>
+              </Box>
+              
+              {/* Profile badges in menu */}
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Chip 
+                  label={userRole === 'admin' ? 'Administrator' : 'Employee'}
+                  size="small"
+                  sx={{ 
+                    backgroundColor: userRole === 'admin' 
+                      ? alpha('#f59e0b', 0.1) 
+                      : alpha('#10b981', 0.1),
+                    color: userRole === 'admin' ? '#f59e0b' : '#10b981',
+                    fontWeight: 500,
+                    fontSize: 11
+                  }}
+                />
+                {profile?.position && (
+                  <Chip 
+                    label={getDisplayPosition()}
+                    size="small"
+                    sx={{ 
+                      backgroundColor: alpha('#3b82f6', 0.1),
+                      color: '#3b82f6',
+                      fontWeight: 500,
+                      fontSize: 11
+                    }}
+                  />
+                )}
+                {profile?.department && (
+                  <Chip 
+                    label={getDisplayDepartment()}
+                    size="small"
+                    sx={{ 
+                      backgroundColor: alpha('#8b5cf6', 0.1),
+                      color: '#8b5cf6',
+                      fontWeight: 500,
+                      fontSize: 11
+                    }}
+                  />
+                )}
+              </Box>
             </Box>
             
             <MenuItem 
@@ -303,13 +428,18 @@ const Navbar = () => {
               }}
             >
               <Person sx={{ mr: 2, color: '#64748b' }} /> 
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                My Profile
-              </Typography>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  My Profile
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#64748b' }}>
+                  View and edit profile information
+                </Typography>
+              </Box>
             </MenuItem>
             
             <MenuItem 
-            onClick={handleSettingsClick}
+              onClick={handleSettingsClick}
               sx={{ 
                 py: 1.5, 
                 px: 3,
@@ -319,9 +449,14 @@ const Navbar = () => {
               }}
             >
               <Settings sx={{ mr: 2, color: '#64748b' }} /> 
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                Settings
-              </Typography>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  Settings
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#64748b' }}>
+                  Update password and preferences
+                </Typography>
+              </Box>
             </MenuItem>
             
             <Divider sx={{ my: 1 }} />

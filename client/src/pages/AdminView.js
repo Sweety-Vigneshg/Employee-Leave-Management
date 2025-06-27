@@ -27,11 +27,13 @@ import {
   Dashboard as DashboardIcon,
   SupervisorAccount as SupervisorIcon,
   Add as AddIcon,
-  Visibility as ViewIcon
+  Visibility as ViewIcon,
+  Groups as GroupsIcon
 } from '@mui/icons-material';
 import LeaveForm from '../components/LeaveForm';
 import LeaveList from '../components/LeaveList';
 import Profile from '../components/Profile';
+import EmployeeManagement from '../components/EmployeeManagement';
 import { useAuth } from '../context/AuthContext';
 
 const AdminView = () => {
@@ -173,7 +175,7 @@ const AdminView = () => {
                   Admin Dashboard
                 </Typography>
                 <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 400 }}>
-                  Manage all leave applications and system settings
+                  Manage all leave applications, employees, and system settings
                 </Typography>
               </Grid>
               <Grid item>
@@ -246,6 +248,12 @@ const AdminView = () => {
               icon={<DashboardIcon />} 
               iconPosition="start"
               label="Leave Management" 
+              sx={{ flexDirection: 'row', gap: 1 }}
+            />
+            <Tab 
+              icon={<GroupsIcon />} 
+              iconPosition="start"
+              label="Employee Management" 
               sx={{ flexDirection: 'row', gap: 1 }}
             />
             <Tab 
@@ -385,6 +393,55 @@ const AdminView = () => {
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
+          <Card 
+            elevation={0}
+            sx={{ 
+              borderRadius: 3,
+              border: '1px solid #e0e7ff',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+              transition: 'all 0.3s ease-in-out',
+              '&:hover': {
+                boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+            <CardContent sx={{ p: 4 }}>
+              {/* Section Header */}
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                mb: 3,
+                pb: 2,
+                borderBottom: '2px solid #f1f5f9'
+              }}>
+                <Box sx={{ 
+                  p: 1.5, 
+                  borderRadius: 2, 
+                  backgroundColor: alpha('#3b82f6', 0.1),
+                  mr: 2
+                }}>
+                  <GroupsIcon sx={{ 
+                    color: '#3b82f6',
+                    fontSize: 24
+                  }} />
+                </Box>
+                <Box>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b' }}>
+                    Employee Management
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Manage all employee details and information
+                  </Typography>
+                </Box>
+              </Box>
+              
+              <EmployeeManagement />
+            </CardContent>
+          </Card>
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={2}>
           <Grid container justifyContent="center">
             <Grid item xs={12} md={8} lg={6}>
               <Card 
