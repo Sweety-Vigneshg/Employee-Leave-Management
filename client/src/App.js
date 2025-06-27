@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import Signup from './components/Signup';
@@ -11,13 +11,8 @@ import { Box, Typography } from '@mui/material';
 
 function App() {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/login');
-    }
-  }, [user, loading, navigate]);
+  // Alternative: Remove the useEffect completely and handle redirects in routes
 
   if (loading) {
     return (
