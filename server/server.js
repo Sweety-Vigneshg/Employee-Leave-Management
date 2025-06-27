@@ -402,14 +402,14 @@ app.put('/api/change-password', authenticateJWT, async (req, res) => {
 
 // Updating profile management
 // Add profile fields to users table
-db.query(`
-  ALTER TABLE users 
-  ADD COLUMN IF NOT EXISTS full_name VARCHAR(255) NOT NULL DEFAULT '',
-  ADD COLUMN IF NOT EXISTS email VARCHAR(255) NOT NULL DEFAULT '',
-  ADD COLUMN IF NOT EXISTS position VARCHAR(100) NOT NULL DEFAULT '',
-  ADD COLUMN IF NOT EXISTS department VARCHAR(100) NOT NULL DEFAULT '',
-  ADD COLUMN IF NOT EXISTS phone VARCHAR(20) NOT NULL DEFAULT ''
-`);
+// db.query(`
+//   ALTER TABLE users 
+//   ADD COLUMN IF NOT EXISTS full_name VARCHAR(255) NOT NULL DEFAULT '',
+//   ADD COLUMN IF NOT EXISTS email VARCHAR(255) NOT NULL DEFAULT '',
+//   ADD COLUMN IF NOT EXISTS position VARCHAR(100) NOT NULL DEFAULT '',
+//   ADD COLUMN IF NOT EXISTS department VARCHAR(100) NOT NULL DEFAULT '',
+//   ADD COLUMN IF NOT EXISTS phone VARCHAR(20) NOT NULL DEFAULT ''
+// `);
 
 // Profile routes
 app.get('/api/profile', authenticateJWT, async (req, res) => {
