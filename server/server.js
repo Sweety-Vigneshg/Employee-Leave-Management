@@ -37,6 +37,11 @@ async function initializeDatabase() {
         username VARCHAR(255) NOT NULL UNIQUE,
         password VARCHAR(255) NOT NULL,
         role ENUM('employee', 'admin') NOT NULL DEFAULT 'employee',
+        full_name VARCHAR(255) NOT NULL DEFAULT '',
+        email VARCHAR(255) NOT NULL DEFAULT '',
+        position VARCHAR(100) NOT NULL DEFAULT '',
+        department VARCHAR(100) NOT NULL DEFAULT '',
+        phone VARCHAR(20) NOT NULL DEFAULT '',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -80,11 +85,11 @@ async function initializeDatabase() {
       const hashedEmpPass = await bcrypt.hash('employee123', 10);
       
       await connection.query(
-        'INSERT INTO users (username, password, role) VALUES ?',
+        'INSERT INTO users (username, password, role, full_name, email, position, department, phone) VALUES ?',
         [
           [
-            ['admin', hashedAdminPass, 'admin'],
-            ['employee', hashedEmpPass, 'employee']
+            ['admin', hashedAdminPass, 'admin', 'Admin User', 'admin@company.com', 'Administrator', 'Management', '123-456-7890'],
+            ['employee', hashedEmpPass, 'employee', 'John Doe', 'john@company.com', 'Developer', 'Engineering', '987-654-3210']
           ]
         ]
       );
@@ -140,6 +145,26 @@ const authenticateJWT = (req, res, next) => {
     });
   } else {
     res.sendStatus(401);
+  }
+};
+
+// Admin Middleware
+const requireAdmin = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const [users] = await pool.query(
+      'SELECT role FROM users WHERE id = ?',
+      [userId]
+    );
+    
+    if (users.length === 0 || users[0].role !== 'admin') {
+      return res.status(403).json({ message: 'Admin privileges required' });
+    }
+    
+    next();
+  } catch (error) {
+    console.error('Admin check error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -203,7 +228,12 @@ app.post('/api/login', async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
-        role: user.role
+        role: user.role,
+        full_name: user.full_name,
+        email: user.email,
+        position: user.position,
+        department: user.department,
+        phone: user.phone
       }
     });
   } catch (error) {
@@ -306,117 +336,12 @@ app.put('/api/leaves/:id', authenticateJWT, async (req, res) => {
   }
 });
 
-// profile manangement
-// Get user profile
-app.get('/api/profile', authenticateJWT, async (req, res) => {
-  const userId = req.user.id;
-
-  try {
-    const [users] = await pool.query(
-      'SELECT id, username, role, full_name, email, position, department, phone FROM users WHERE id = ?',
-      [userId]
-    );
-    
-    if (users.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    res.json(users[0]);
-  } catch (error) {
-    console.error('Profile retrieval error:', error);
-    res.status(500).json({ 
-      message: 'Database error', 
-      error: error.message,
-      code: error.code
-    });
-  }
-});
-
-// Update user profile
-app.put('/api/profile', authenticateJWT, async (req, res) => {
-  const userId = req.user.id;
-  const { full_name, email, position, department, phone } = req.body;
-
-  try {
-    await pool.query(
-      `UPDATE users 
-       SET full_name = ?, email = ?, position = ?, department = ?, phone = ?
-       WHERE id = ?`,
-      [full_name, email, position, department, phone, userId]
-    );
-    
-    res.json({ message: 'Profile updated successfully' });
-  } catch (error) {
-    console.error('Profile update error:', error);
-    res.status(500).json({ 
-      message: 'Database error', 
-      error: error.message,
-      code: error.code
-    });
-  }
-});
-
-// Change password
-app.put('/api/change-password', authenticateJWT, async (req, res) => {
-  const userId = req.user.id;
-  const { currentPassword, newPassword } = req.body;
-
-  try {
-    // Get current user
-    const [users] = await pool.query(
-      'SELECT password FROM users WHERE id = ?',
-      [userId]
-    );
-    
-    if (users.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    const user = users[0];
-    
-    // Verify current password
-    const passwordMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!passwordMatch) {
-      return res.status(401).json({ message: 'Current password is incorrect' });
-    }
-    
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    
-    // Update password
-    await pool.query(
-      'UPDATE users SET password = ? WHERE id = ?',
-      [hashedPassword, userId]
-    );
-    
-    res.json({ message: 'Password updated successfully' });
-  } catch (error) {
-    console.error('Password change error:', error);
-    res.status(500).json({ 
-      message: 'Database error', 
-      error: error.message,
-      code: error.code
-    });
-  }
-});
-
-// Updating profile management
-// Add profile fields to users table
-// db.query(`
-//   ALTER TABLE users 
-//   ADD COLUMN IF NOT EXISTS full_name VARCHAR(255) NOT NULL DEFAULT '',
-//   ADD COLUMN IF NOT EXISTS email VARCHAR(255) NOT NULL DEFAULT '',
-//   ADD COLUMN IF NOT EXISTS position VARCHAR(100) NOT NULL DEFAULT '',
-//   ADD COLUMN IF NOT EXISTS department VARCHAR(100) NOT NULL DEFAULT '',
-//   ADD COLUMN IF NOT EXISTS phone VARCHAR(20) NOT NULL DEFAULT ''
-// `);
-
 // Profile routes
 app.get('/api/profile', authenticateJWT, async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const [users] = await db.promise().query(
+    const [users] = await pool.query(
       'SELECT id, username, role, full_name, email, position, department, phone FROM users WHERE id = ?',
       [userId]
     );
@@ -441,7 +366,7 @@ app.put('/api/profile', authenticateJWT, async (req, res) => {
   const { full_name, email, position, department, phone } = req.body;
 
   try {
-    await db.promise().query(
+    await pool.query(
       `UPDATE users 
        SET full_name = ?, email = ?, position = ?, department = ?, phone = ?
        WHERE id = ?`,
@@ -465,7 +390,7 @@ app.put('/api/change-password', authenticateJWT, async (req, res) => {
 
   try {
     // Get current user
-    const [users] = await db.promise().query(
+    const [users] = await pool.query(
       'SELECT password FROM users WHERE id = ?',
       [userId]
     );
@@ -486,7 +411,7 @@ app.put('/api/change-password', authenticateJWT, async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     
     // Update password
-    await db.promise().query(
+    await pool.query(
       'UPDATE users SET password = ? WHERE id = ?',
       [hashedPassword, userId]
     );
@@ -499,6 +424,117 @@ app.put('/api/change-password', authenticateJWT, async (req, res) => {
       error: error.message,
       code: error.code
     });
+  }
+});
+
+// Employee Management Routes
+app.get('/api/employees', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const [employees] = await pool.query(
+      'SELECT id, username, full_name, email, phone, position, department, role, created_at FROM users'
+    );
+    res.json(employees);
+  } catch (error) {
+    console.error('Employee retrieval error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.post('/api/employees', authenticateJWT, requireAdmin, async (req, res) => {
+  const { username, password, full_name, email, phone, position, department, role } = req.body;
+
+  if (!username || !password || !full_name) {
+    return res.status(400).json({ message: 'Username, password, and full name are required' });
+  }
+
+  try {
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Insert new employee
+    const [result] = await pool.query(
+      `INSERT INTO users 
+        (username, password, full_name, email, phone, position, department, role) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [username, hashedPassword, full_name, email, phone, position, department, role || 'employee']
+    );
+    
+    // Fetch the newly created employee without password
+    const [newEmployee] = await pool.query(
+      'SELECT id, username, full_name, email, phone, position, department, role, created_at FROM users WHERE id = ?',
+      [result.insertId]
+    );
+    
+    res.status(201).json(newEmployee[0]);
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: 'Username already exists' });
+    }
+    console.error('Employee creation error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.put('/api/employees/:id', authenticateJWT, requireAdmin, async (req, res) => {
+  const id = req.params.id;
+  const { full_name, email, phone, position, department, role, password } = req.body;
+  
+  try {
+    let query = `
+      UPDATE users SET 
+        full_name = ?, 
+        email = ?, 
+        phone = ?, 
+        position = ?, 
+        department = ?, 
+        role = ?
+    `;
+    
+    const params = [full_name, email, phone, position, department, role];
+    
+    // Add password update if provided
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      query += ', password = ?';
+      params.push(hashedPassword);
+    }
+    
+    query += ' WHERE id = ?';
+    params.push(id);
+    
+    await pool.query(query, params);
+    
+    // Fetch updated employee
+    const [updatedEmployee] = await pool.query(
+      'SELECT id, username, full_name, email, phone, position, department, role, created_at FROM users WHERE id = ?',
+      [id]
+    );
+    
+    if (updatedEmployee.length === 0) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+    
+    res.json(updatedEmployee[0]);
+  } catch (error) {
+    console.error('Employee update error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.delete('/api/employees/:id', authenticateJWT, requireAdmin, async (req, res) => {
+  const id = req.params.id;
+  
+  try {
+    const [result] = await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error('Employee deletion error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
