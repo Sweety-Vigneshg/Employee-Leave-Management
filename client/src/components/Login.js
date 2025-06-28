@@ -343,63 +343,6 @@ const Login = () => {
                     </Link>
                   </Typography>
                 </Box>
-                
-                <Divider sx={{ my: 3 }}>
-                  <Typography variant="body2" color="textSecondary">
-                    Demo Accounts
-                  </Typography>
-                </Divider>
-                
-                {/* Demo accounts */}
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Card 
-                    sx={{ 
-                      flex: 1,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease-in-out',
-                      '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                      },
-                      border: '1px solid #e0e7ff'
-                    }}
-                    onClick={() => handleDemoLogin('admin', 'admin123@')}
-                  >
-                    <CardContent sx={{ p: 2, textAlign: 'center' }}>
-                      <AdminIcon sx={{ color: '#7c3aed', mb: 1 }} />
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                        Administrator
-                      </Typography>
-                      <Typography variant="caption" color="textSecondary">
-                        admin / admin123@
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card 
-                    sx={{ 
-                      flex: 1,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease-in-out',
-                      '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                      },
-                      border: '1px solid #e0e7ff'
-                    }}
-                    onClick={() => handleDemoLogin('vicky', 'vicky123@')}
-                  >
-                    <CardContent sx={{ p: 2, textAlign: 'center' }}>
-                      <WorkIcon sx={{ color: theme.palette.primary.main, mb: 1 }} />
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                        Employee
-                      </Typography>
-                      <Typography variant="caption" color="textSecondary">
-                        vicky / vicky123@
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Box>
               </Paper>
             </Grid>
           </Grid>
